@@ -32,6 +32,7 @@ pub fn traverse_directory(
     relative_paths: bool,
     exclude_from_tree: bool,
     no_codeblock: bool,
+    depth: Option<usize>,  // Add depth parameter here
 ) -> Result<(String, Vec<serde_json::Value>)> {
     // ~~~ Initialization ~~~
     let mut files = Vec::new();
@@ -39,9 +40,14 @@ pub fn traverse_directory(
     let parent_directory = label(&canonical_root_path);
 
     // ~~~ Build the Tree ~~~
-    let tree = WalkBuilder::new(&canonical_root_path)
-        .git_ignore(true)
-        .build()
+    let mut tree_builder = WalkBuilder::new(&canonical_root_path);
+    tree_builder.git_ignore(true);
+
+    if let Some(max_depth) = depth {
+        tree_builder.max_depth(Some(max_depth));
+    }
+
+    let tree = tree_builder.build()
         .filter_map(|e| e.ok())
         .fold(Tree::new(parent_directory.to_owned()), |mut root, entry| {
             let path = entry.path();
@@ -102,8 +108,10 @@ pub fn traverse_directory(
             root
         });
 
+
     Ok((tree.to_string(), files))
 }
+
 
 /// Returns the file name or the string representation of the path.
 ///

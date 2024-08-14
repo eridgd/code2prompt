@@ -93,6 +93,11 @@ struct Cli {
     /// Print output as JSON
     #[clap(long)]
     json: bool,
+
+    /// Optional depth to limit directory traversal
+    #[clap(long)]
+    depth: Option<usize>,
+
 }
 
 fn main() -> Result<()> {
@@ -120,7 +125,8 @@ fn main() -> Result<()> {
         args.relative_paths,
         args.exclude_from_tree,
         args.no_codeblock,
-    );
+        args.depth,  // Pass the depth argument here
+    );    
 
     let (tree, files) = match create_tree {
         Ok(result) => result,
