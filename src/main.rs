@@ -16,6 +16,10 @@ use log::{debug, error};
 use serde_json::json;
 use std::path::PathBuf;
 
+mod utils;
+use utils::{is_url, extract_github_repo_root, download_repo};
+
+
 // Constants
 const DEFAULT_TEMPLATE_NAME: &str = "default";
 const CUSTOM_TEMPLATE_NAME: &str = "custom";
@@ -24,9 +28,9 @@ const CUSTOM_TEMPLATE_NAME: &str = "custom";
 #[derive(Parser)]
 #[clap(name = "code2prompt", version = "2.0.0", author = "Mufeed VH")]
 struct Cli {
-    /// Path to the codebase directory
+    /// Path to the codebase directory or GitHub repository URL
     #[arg()]
-    path: PathBuf,
+    input: String,  // Change from `PathBuf` to `String`
 
     /// Patterns to include
     #[clap(long)]
@@ -104,6 +108,21 @@ fn main() -> Result<()> {
     env_logger::init();
     let args = Cli::parse();
 
+    // Determine if the input is a URL or a path
+    let temp_dir;
+    let input_path: PathBuf = if is_url(&args.input) {
+        if let Some(repo_url) = extract_github_repo_root(&args.input) {
+            println!("Cloning repository: {}", repo_url);
+            temp_dir = download_repo(&repo_url)?;
+            temp_dir.path().to_path_buf()
+        } else {
+            eprintln!("Invalid GitHub repository URL.");
+            std::process::exit(1);
+        }
+    } else {
+        args.input.clone().into()  // Convert the input String into a PathBuf
+    };    
+
     // Handlebars Template Setup
     let (template_content, template_name) = get_template(&args)?;
     let handlebars = handlebars_setup(&template_content, template_name)?;
@@ -117,7 +136,7 @@ fn main() -> Result<()> {
 
     // Traverse the directory
     let create_tree = traverse_directory(
-        &args.path,
+        &input_path, // Use the determined input path
         &include_patterns,
         &exclude_patterns,
         args.include_priority,
@@ -126,7 +145,7 @@ fn main() -> Result<()> {
         args.exclude_from_tree,
         args.no_codeblock,
         args.depth,  // Pass the depth argument here
-    );    
+    );
 
     let (tree, files) = match create_tree {
         Ok(result) => result,
@@ -146,7 +165,7 @@ fn main() -> Result<()> {
     // Git Diff
     let git_diff = if args.diff {
         spinner.set_message("Generating git diff...");
-        get_git_diff(&args.path).unwrap_or_default()
+        get_git_diff(&input_path).unwrap_or_default()
     } else {
         String::new()
     };
@@ -160,7 +179,7 @@ fn main() -> Result<()> {
             error!("Please provide exactly two branches separated by a comma.");
             std::process::exit(1);
         }
-        git_diff_branch = get_git_diff_between_branches(&args.path, &branches[0], &branches[1])
+        git_diff_branch = get_git_diff_between_branches(&input_path, &branches[0], &branches[1])
             .unwrap_or_default()
     }
 
@@ -173,14 +192,14 @@ fn main() -> Result<()> {
             error!("Please provide exactly two branches separated by a comma.");
             std::process::exit(1);
         }
-        git_log_branch = get_git_log(&args.path, &branches[0], &branches[1]).unwrap_or_default()
+        git_log_branch = get_git_log(&input_path, &branches[0], &branches[1]).unwrap_or_default()
     }
 
     spinner.finish_with_message("Done!".green().to_string());
 
     // Prepare JSON Data
     let mut data = json!({
-        "absolute_code_path": label(&args.path),
+        "absolute_code_path": label(&input_path),
         "source_tree": tree,
         "files": files,
         "git_diff": git_diff,
@@ -221,7 +240,7 @@ fn main() -> Result<()> {
     if args.json {
         let json_output = json!({
             "prompt": rendered,
-            "directory_name": label(&args.path),
+            "directory_name": label(&input_path),
             "token_count": token_count,
             "model_info": model_info,
             "files": paths,
@@ -273,6 +292,7 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
 
 /// Sets up a progress spinner with a given message
 ///
