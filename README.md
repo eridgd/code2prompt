@@ -79,6 +79,18 @@ Generate a prompt from a codebase directory:
 code2prompt path/to/codebase
 ```
 
+Or use a GitHub repo url directly:
+
+```sh
+code2prompt https://github.com/username/reponame
+```
+
+Specify the maximum depth to limit directory traversal
+
+```sh
+code2prompt path/to/codebase --depth 2
+```
+
 Use a custom Handlebars template file:
 
 ```sh
