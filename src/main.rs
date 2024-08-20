@@ -17,7 +17,7 @@ use serde_json::json;
 use std::path::PathBuf;
 
 mod utils;
-use utils::{is_url, extract_github_repo_root, download_repo};
+use utils::{is_url, extract_repo_root, download_repo};
 
 
 // Constants
@@ -111,7 +111,7 @@ fn main() -> Result<()> {
     // Determine if the input is a URL or a path
     let temp_dir;
     let input_path: PathBuf = if is_url(&args.input) {
-        if let Some(repo_url) = extract_github_repo_root(&args.input) {
+        if let Some(repo_url) = extract_repo_root(&args.input) {
             println!("Cloning repository: {}", repo_url);
             temp_dir = download_repo(&repo_url)?;
             temp_dir.path().to_path_buf()

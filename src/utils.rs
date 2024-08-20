@@ -8,9 +8,17 @@ pub fn is_url(input: &str) -> bool {
     input.starts_with("http://") || input.starts_with("https://")
 }
 
-pub fn extract_github_repo_root(url: &str) -> Option<String> {
-    let re = Regex::new(r"https://github.com/([^/]+/[^/]+)").unwrap();
-    re.captures(url).map(|cap| cap[0].to_string())
+pub fn extract_repo_root(url: &str) -> Option<String> {
+    let github_re = Regex::new(r"https://github.com/([^/]+/[^/]+)").unwrap();
+    let hf_re = Regex::new(r"https://huggingface.co/([^/]+/[^/]+)").unwrap();
+
+    if let Some(cap) = github_re.captures(url) {
+        return Some(cap[0].to_string());
+    } else if let Some(cap) = hf_re.captures(url) {
+        return Some(cap[0].to_string());
+    }
+    
+    None
 }
 
 pub fn download_repo(repo_url: &str) -> Result<TempDir, anyhow::Error> {
